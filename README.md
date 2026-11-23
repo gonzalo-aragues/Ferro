@@ -1,27 +1,27 @@
 # Ferro
 
-App de barra de menú para macOS que convierte el notch en una "isla" interactiva con animación de ferrofluido.
+A macOS menu bar app that turns the notch into an interactive "island" with a ferrofluid animation.
 
-## Funciones
+## Features
 
-- **Música**: muestra lo que suena en Music o Spotify, controles de reproducción y letras.
-- **Shelf**: arrastra archivos al notch para tenerlos a mano.
-- **Portapapeles**: historial del portapapeles (ignora los elementos que los gestores de contraseñas marcan como ocultos).
-- **Herramientas**: espejo con la cámara (solo mientras está abierto) y otras utilidades.
-- Opción de abrir al iniciar sesión desde el icono de la barra de menú.
+- **Music**: shows what's playing in Music or Spotify, with playback controls and lyrics.
+- **Shelf**: drag files onto the notch to keep them close at hand.
+- **Clipboard**: clipboard history (skips items that password managers mark as concealed).
+- **Tools**: a camera mirror (active only while it's open) and other utilities.
+- Launch at login, toggled from the menu bar icon.
 
-## Requisitos
+## Requirements
 
-- macOS 26 o superior
+- macOS 26 or later
 - Swift 6.2
 
-## Compilar
+## Build
 
 ```bash
 ./build.sh
 ```
 
-Genera `build/Ferro.app` (firmada ad-hoc). Ábrela con doble clic o:
+This produces `build/Ferro.app` (ad-hoc signed). Double-click it to open, or run:
 
 ```bash
 open build/Ferro.app

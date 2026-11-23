@@ -11,7 +11,8 @@ final class NotchPanel: NSPanel {
         backgroundColor = .clear
         hasShadow = false
         level = NSWindow.Level(rawValue: NSWindow.Level.mainMenu.rawValue + 3)
-        collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
+        // `.transient` keeps the island out of Mission Control (`.stationary` kept it on screen there).
+        collectionBehavior = [.canJoinAllSpaces, .transient, .fullScreenAuxiliary, .ignoresCycle]
         isMovable = false
         isFloatingPanel = true
         hidesOnDeactivate = false

@@ -1,6 +1,6 @@
 # Ferro
 
-A macOS menu bar app that turns the notch into an interactive "island" with a ferrofluid animation.
+A macOS app that turns the notch into an interactive "dynamic island" with a ferrofluid animation.
 
 ## Features
 

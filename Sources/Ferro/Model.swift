@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum IslandTab: String, CaseIterable, Identifiable {
-    case music, shelf, clipboard, tools
+    case music, shelf, clipboard, tools, claude
     var id: String { rawValue }
     var icon: String {
         switch self {
@@ -9,12 +9,13 @@ enum IslandTab: String, CaseIterable, Identifiable {
         case .shelf: "tray.full.fill"
         case .clipboard: "doc.on.clipboard.fill"
         case .tools: "square.grid.2x2.fill"
+        case .claude: "asterisk"
         }
     }
 }
 
 enum LiveActivity: Equatable {
-    case none, music, timer, timerDone, copied
+    case none, music, timer, timerDone, copied, claude, claudeDone
     case charging(Int)
     case shelved(Int)
 }
@@ -28,8 +29,10 @@ final class NotchModel: ObservableObject {
     @Published var notchSize = CGSize(width: 190, height: 32)
 
     static let expandedBody = CGSize(width: 640, height: 300)
+    /// The Claude tab is a terminal; it gets a little more height.
+    static let claudeBody = CGSize(width: 660, height: 350)
     /// Size of the transparent window the island lives in (room for shadows).
-    static let canvas = CGSize(width: 760, height: 360)
+    static let canvas = CGSize(width: 780, height: 410)
     let wing: CGFloat = 60
 
     private var toastWork: DispatchWorkItem?
@@ -38,7 +41,7 @@ final class NotchModel: ObservableObject {
     var bottomRadius: CGFloat { expanded ? 36 : 12 }
 
     var bodySize: CGSize {
-        if expanded { return Self.expandedBody }
+        if expanded { return tab == .claude ? Self.claudeBody : Self.expandedBody }
         if activity == .none { return notchSize }
         return CGSize(width: notchSize.width + wing * 2, height: notchSize.height)
     }

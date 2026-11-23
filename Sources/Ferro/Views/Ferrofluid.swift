@@ -32,10 +32,21 @@ struct FerroSurface: View {
     var energy: Double
     var accent: Color
     var inset: CGFloat
+    /// Fraction of the height that stays solid black so the island blends into the notch.
+    var solidTop: CGFloat = 0.12
 
     var body: some View {
         ZStack {
-            LinearGradient(colors: [.black, Color(white: 0.03)], startPoint: .top, endPoint: .bottom)
+            // Expanded: black under the notch, melting into the Liquid Glass below.
+            LinearGradient(stops: [
+                .init(color: .black, location: 0),
+                .init(color: .black, location: solidTop),
+                .init(color: .black.opacity(0.62), location: solidTop + 0.14),
+                .init(color: .black.opacity(0.3), location: 0.62),
+                .init(color: .black.opacity(0.42), location: 1),
+            ], startPoint: .top, endPoint: .bottom)
+            // Collapsed: solid black, indistinguishable from the hardware notch.
+            Color.black.opacity(expanded ? 0 : 1)
             if expanded {
                 TimelineView(.animation(minimumInterval: 1 / 45)) { tl in
                     let t = tl.date.timeIntervalSinceReferenceDate
@@ -56,9 +67,12 @@ struct FerroSurface: View {
     private func gloss(_ t: Double) -> some View {
         let x = sin(t * 0.22) * 0.32 + 0.5
         return ZStack {
-            RadialGradient(colors: [accent.opacity(0.09), .clear],
+            RadialGradient(colors: [accent.opacity(0.14), .clear],
                            center: UnitPoint(x: x, y: 0.05), startRadius: 0, endRadius: 340)
-            LinearGradient(colors: [.white.opacity(0.025), .clear], startPoint: .top, endPoint: .center)
+            // Caustic-like highlight drifting the other way, for a wetter glass look.
+            RadialGradient(colors: [.white.opacity(0.06), .clear],
+                           center: UnitPoint(x: 1 - x, y: 0.75), startRadius: 0, endRadius: 260)
+            LinearGradient(colors: [.white.opacity(0.04), .clear], startPoint: .top, endPoint: .center)
         }
     }
 }

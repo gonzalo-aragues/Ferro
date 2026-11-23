@@ -36,6 +36,7 @@ final class NotchController {
     let clipboard = ClipboardStore()
     let battery = BatteryMonitor()
     let timer = FocusTimer()
+    let claude = ClaudeWatcher()
 
     private var panel: NotchPanel?
     private var screen: NSScreen?
@@ -54,6 +55,11 @@ final class NotchController {
         timer.onFinish = { [weak self] in self?.model.flash(.timerDone, for: 5) }
         clipboard.onCopiedFromIsland = { [weak self] in self?.model.flash(.copied, for: 1.4) }
         shelf.onAdded = { [weak self] n in self?.model.flash(.shelved(n)) }
+        claude.onFinish = { [weak self] _ in
+            self?.model.flash(.claudeDone, for: 4)
+            NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
+        }
+        claude.start()
         NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
         ) { [weak self] _ in self?.layout() }
@@ -89,6 +95,7 @@ final class NotchController {
                 .environmentObject(clipboard)
                 .environmentObject(battery)
                 .environmentObject(timer)
+                .environmentObject(claude)
             let host = FirstMouseHostingView(rootView: root)
             host.sizingOptions = []
             p.contentView = host
@@ -172,10 +179,14 @@ final class NotchController {
     // MARK: Live activity in the collapsed pill
 
     private func bindActivity() {
-        Publishers.CombineLatest4(media.$isPlaying, timer.$running, model.$toast, media.$title)
+        Publishers.CombineLatest(
+            Publishers.CombineLatest4(media.$isPlaying, timer.$running, model.$toast, media.$title),
+            claude.$sessions.map { $0.contains { $0.working } }.removeDuplicates())
             .receive(on: RunLoop.main)
-            .sink { [weak self] playing, running, toast, title in
-                let a: LiveActivity = toast ?? (running ? .timer : (playing && !title.isEmpty ? .music : .none))
+            .sink { [weak self] m, claudeWorking in
+                let (playing, running, toast, title) = m
+                let a: LiveActivity = toast ?? (running ? .timer : claudeWorking ? .claude
+                                                : (playing && !title.isEmpty ? .music : .none))
                 guard self?.model.activity != a else { return }
                 withAnimation(.spring(response: 0.45, dampingFraction: 0.78)) { self?.model.activity = a }
             }

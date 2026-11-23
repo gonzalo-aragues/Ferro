@@ -6,15 +6,44 @@ enum GlassMode {
 }
 
 extension View {
-    /// Dark Liquid Glass.
+    /// Liquid Glass, kept dark enough for white text but clear enough to refract what's behind it.
+    /// `tint` is the old darkness scale (0...1); it's halved so every surface reads as glass first.
     @ViewBuilder
     func ferroGlass<S: Shape>(_ shape: S, tint: Double = 0.45, interactive: Bool = false) -> some View {
         if GlassMode.fallback {
-            self.background(shape.fill(Color.white.opacity(0.09)))
-                .overlay(shape.stroke(Color.white.opacity(0.15), lineWidth: 0.5))
+            self.background(shape.fill(Color.white.opacity(0.11)))
+                .overlay(GlassRim(shape: shape))
         } else {
-            let glass = Glass.regular.tint(Color.black.opacity(tint))
+            let glass = Glass.regular.tint(Color.black.opacity(tint * 0.5))
             self.glassEffect(interactive ? glass.interactive() : glass, in: shape)
+                .overlay(GlassRim(shape: shape))
+        }
+    }
+}
+
+/// Specular edge: bright where light hits the top-left, a faint bounce at the bottom-right.
+struct GlassRim<S: Shape>: View {
+    let shape: S
+    var body: some View {
+        shape.stroke(LinearGradient(stops: [
+            .init(color: .white.opacity(0.5), location: 0),
+            .init(color: .white.opacity(0.08), location: 0.35),
+            .init(color: .white.opacity(0.02), location: 0.65),
+            .init(color: .white.opacity(0.22), location: 1),
+        ], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 0.8)
+        .blendMode(.plusLighter)
+        .allowsHitTesting(false)
+    }
+}
+
+/// The island's own glass layer.
+struct IslandGlass<S: Shape>: View {
+    let shape: S
+    var body: some View {
+        if GlassMode.fallback {
+            shape.fill(Color(white: 0.2).opacity(0.85))
+        } else {
+            Color.clear.glassEffect(.regular.tint(.black.opacity(0.3)), in: shape)
         }
     }
 }

@@ -18,11 +18,13 @@ struct IslandView: View {
     @EnvironmentObject var model: NotchModel
     @EnvironmentObject var media: MediaController
     @EnvironmentObject var shelf: ShelfStore
+    @EnvironmentObject var claude: ClaudeWatcher
 
     var body: some View {
         let shape = NotchShape(topRadius: model.topRadius, bottomRadius: model.bottomRadius)
         ZStack(alignment: .top) {
-            FerroSurface(expanded: model.expanded, energy: energy, accent: media.accent, inset: model.topRadius)
+            FerroSurface(expanded: model.expanded, energy: energy, accent: accent, inset: model.topRadius,
+                         solidTop: (model.notchSize.height + 4) / max(model.bodySize.height, 1))
 
             if model.expanded {
                 ExpandedView()
@@ -37,10 +39,28 @@ struct IslandView: View {
             }
         }
         .clipShape(shape)
+        .background {
+            // The open island is real Liquid Glass: the desktop refracts through it below the notch.
+            IslandGlass(shape: shape).opacity(model.expanded ? 1 : 0)
+        }
         .overlay {
             // Glass rim: invisible where it meets the bezel, catches light toward the bottom.
-            shape.stroke(LinearGradient(colors: [.clear, .white.opacity(model.expanded ? 0.16 : 0.06)],
+            shape.stroke(LinearGradient(colors: [.clear, .white.opacity(model.expanded ? 0.34 : 0.06)],
                                         startPoint: .top, endPoint: .bottom), lineWidth: 1)
+                .blendMode(.plusLighter)
+        }
+        .overlay {
+            if model.expanded {
+                // Inner specular sheen along the lower edge.
+                shape
+                    .stroke(LinearGradient(colors: [.clear, .clear, .white.opacity(0.14), accent.opacity(0.3)],
+                                           startPoint: .top, endPoint: .bottom), lineWidth: 5)
+                    .blur(radius: 2)
+                    .clipShape(shape)
+                    .blendMode(.plusLighter)
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+            }
         }
         .overlay {
             if model.dropTargeted {
@@ -59,7 +79,12 @@ struct IslandView: View {
 
     private var energy: Double {
         if model.dropTargeted { return 1 }
+        if claude.isWorking { return 0.7 }
         return media.isPlaying ? 0.75 : 0.22
+    }
+
+    private var accent: Color {
+        (model.tab == .claude && model.expanded) || (!media.isPlaying && claude.isWorking) ? ClaudeTheme.claude : media.accent
     }
 }
 
@@ -69,6 +94,7 @@ struct CollapsedView: View {
     @EnvironmentObject var model: NotchModel
     @EnvironmentObject var media: MediaController
     @EnvironmentObject var timer: FocusTimer
+    @EnvironmentObject var claude: ClaudeWatcher
 
     var body: some View {
         HStack(spacing: 0) {
@@ -102,6 +128,10 @@ struct CollapsedView: View {
             Image(systemName: "checkmark.circle.fill").foregroundStyle(.white)
         case .shelved:
             Image(systemName: "tray.and.arrow.down.fill").foregroundStyle(.white)
+        case .claude:
+            ClaudeSpinner(size: 15)
+        case .claudeDone:
+            Text("✻").font(ClaudeTheme.mono(15, .bold)).foregroundStyle(ClaudeTheme.claude)
         case .none:
             Color.clear
         }
@@ -123,6 +153,21 @@ struct CollapsedView: View {
             Text("Copied").font(.system(size: 11, weight: .semibold))
         case .shelved(let n):
             Text("+\(n)").font(font)
+        case .claude:
+            if let s = claude.sessions.first(where: { $0.working }) {
+                if !s.steps.isEmpty {
+                    Text("\(s.doneSteps)/\(s.steps.count)").font(ClaudeTheme.mono(12, .semibold))
+                        .foregroundStyle(ClaudeTheme.claude)
+                        .contentTransition(.numericText())
+                } else {
+                    TimelineView(.periodic(from: .now, by: 1)) { tl in
+                        Text(ClaudeTheme.duration(s.elapsed(at: tl.date))).font(ClaudeTheme.mono(11, .semibold))
+                            .foregroundStyle(ClaudeTheme.claude)
+                    }
+                }
+            }
+        case .claudeDone:
+            Text("Done").font(ClaudeTheme.mono(12, .semibold)).foregroundStyle(ClaudeTheme.claude)
         case .none:
             Color.clear
         }
@@ -146,6 +191,7 @@ struct ExpandedView: View {
                 case .shelf: ShelfPanel()
                 case .clipboard: ClipboardPanel()
                 case .tools: ToolsPanel()
+                case .claude: ClaudePanel()
                 }
             }
             .id(model.tab)
@@ -159,8 +205,22 @@ struct ExpandedView: View {
 }
 
 struct HeaderRow: View {
+    @ViewBuilder private func icon(_ tab: IslandTab) -> some View {
+        let on = model.tab == tab
+        if tab == .claude {
+            // Claude's starburst; spins and glows orange while Claude is working.
+            ClaudeSpinner(animating: claude.isWorking, size: 14,
+                          color: claude.isWorking ? ClaudeTheme.claude : .white.opacity(on ? 1 : 0.5))
+        } else {
+            Image(systemName: tab.icon)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(on ? .white : .white.opacity(0.5))
+        }
+    }
+
     @EnvironmentObject var model: NotchModel
     @EnvironmentObject var battery: BatteryMonitor
+    @EnvironmentObject var claude: ClaudeWatcher
     @Namespace private var ns
 
     var body: some View {
@@ -171,13 +231,14 @@ struct HeaderRow: View {
                     Button {
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) { model.tab = tab }
                     } label: {
-                        Image(systemName: tab.icon)
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(model.tab == tab ? .white : .white.opacity(0.5))
+                        icon(tab)
                             .frame(width: 32, height: 22)
                             .background {
                                 if model.tab == tab {
-                                    Capsule().fill(.white.opacity(0.16))
+                                    Capsule().fill(.white.opacity(0.14))
+                                        .overlay(Capsule().strokeBorder(
+                                            LinearGradient(colors: [.white.opacity(0.5), .white.opacity(0.05)],
+                                                           startPoint: .top, endPoint: .bottom), lineWidth: 0.7))
                                         .matchedGeometryEffect(id: "tab", in: ns)
                                 }
                             }
@@ -209,6 +270,7 @@ struct HeaderRow: View {
             .foregroundStyle(.white.opacity(0.85))
             .padding(.horizontal, 10)
             .padding(.vertical, 4)
+            .ferroGlass(Capsule(), tint: 0.5)
         }
         .padding(.horizontal, 20)
         .padding(.top, 2)

@@ -24,6 +24,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         notch = NotchController()
         notch.start()
         setupStatusItem()
+        // Dev flag: `--open <tab>` opens the island on a tab at launch (handy for checking the real glass).
+        let args = CommandLine.arguments
+        if let i = args.firstIndex(of: "--open") {
+            let tab = i + 1 < args.count ? IslandTab(rawValue: args[i + 1]) : nil
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                if let tab { self?.notch.model.tab = tab }
+                self?.notch.setExpanded(true, sticky: true)
+            }
+        }
     }
 
     private func setupStatusItem() {

@@ -9,10 +9,11 @@ enum Snapshot {
         model.notchSize = CGSize(width: 185, height: 32)
         model.expanded = true
         let media = MediaController(), shelf = ShelfStore(), clip = ClipboardStore()
-        let battery = BatteryMonitor(), timer = FocusTimer()
+        let battery = BatteryMonitor(), timer = FocusTimer(), claude = ClaudeWatcher()
+        claude.refreshNow()
         let root = NotchRootView()
             .environmentObject(model).environmentObject(media).environmentObject(shelf)
-            .environmentObject(clip).environmentObject(battery).environmentObject(timer)
+            .environmentObject(clip).environmentObject(battery).environmentObject(timer).environmentObject(claude)
             .background(Color(white: 0.55))
         let c = NotchModel.canvas
         let window = NSWindow(contentRect: NSRect(origin: .zero, size: c), styleMask: .borderless,
@@ -39,5 +40,7 @@ enum Snapshot {
         model.expanded = false
         model.activity = .charging(82)
         shot("collapsed-charging")
+        model.activity = .claude
+        shot("collapsed-claude")
     }
 }
